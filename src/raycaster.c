@@ -8,6 +8,8 @@
 #include "raycaster.h"
 #include "imaging.h"
 
+#define MAX_RECURSE_DEPTH 6
+
 /**
  * Allocates space in the imageRef specified for an image of the selected imageWidth and imageHeight.
  * Then raycasts a specified scene into the specified image.
@@ -76,9 +78,37 @@ int shade(RGBAColor* colorRef, RGBApixel *pixel) {
  * @return
  */
 int shoot(V3 *rayOriginRef, V3 *rayDirectionRef, Scene *sceneRef, RGBAColor *foundColor) {
+	V3 color;
+	if (shoot_rec(rayOriginRef, rayDirectionRef, sceneRef, &color, 0) != 0) {
+		return 1;
+	}
+
+	// Figure out lighting
+	foundColor->data.R = (uint8_t) (clamp(color.array[0])*255);
+	foundColor->data.G = (uint8_t) (clamp(color.array[1])*255);
+	foundColor->data.B = (uint8_t) (clamp(color.array[2])*255);
+	foundColor->data.A = 1;
+
+	return 0;
+}
+
+/**
+ * Does the actual raytracing and sets the primitiveHit to a pointer to the primitive that was hit,
+ * if any, when shooting the ray.
+ * @param rayOriginRef - The origin of the ray
+ * @param rayDirectionRef - The direction of the ray
+ * @param sceneRef - A reference to the current scene
+ * @param primitiveHit - A reference to a refrence of a primitive to set to the hit reference if a hit occurs
+ * @return
+ */
+int shoot_rec(V3 *rayOriginRef, V3 *rayDirectionRef, Scene *sceneRef, V3 *foundColor, int depth) {
 	Primitive *primitiveRef;
 	Primitive *primitiveHitRef = NULL;
-	set_color(foundColor, 0, 0, 0, 1);
+
+	foundColor->array[0] = 0;
+	foundColor->array[1] = 0;
+	foundColor->array[2] = 0;
+
 	// Our current closest t value
 	double primitive_t = INFINITY;
 	// A possible t value replacement
@@ -104,35 +134,77 @@ int shoot(V3 *rayOriginRef, V3 *rayDirectionRef, Scene *sceneRef, RGBAColor *fou
 	}
 
 	if (primitiveHitRef != NULL) {
-		// Calculate our new rayOrigin
+		// ambient light
 		V3 color = {0.1, 0.1, 0.1};
-		// Light intensity
-		V3 I;
 
 		V3 newRayOrigin;
-		V3 newRayDirection;
+		// Calculate our newRayOrigin
 		v3_scale(rayDirectionRef, primitive_t, &newRayOrigin);
 		v3_add(rayOriginRef, &newRayOrigin, &newRayOrigin);
+
+
+		V3 hitToLightRayDirection;
+		V3 rayReflectionDirection;
+		double reflectivity;
+		double refractivity;
+		double ior;
+		V3 normal;
+		V3 colorDiffuse;
+		V3 colorSpecular;
+		V3 lightColor;
+		V3 lightContribution;
+		V3 diffuse;
+		V3 specular;
+		double frad;
+		double fang;
+
+		switch(primitiveHitRef->type) {
+			case PLANE_T:
+				reflectivity = primitiveHitRef->data.plane.reflectivity;
+				refractivity = primitiveHitRef->data.plane.refractivity;
+				ior = primitiveHitRef->data.plane.ior;
+				normal = primitiveHitRef->data.plane.normal;
+				colorDiffuse = primitiveHitRef->data.plane.diffuseColor;
+				colorSpecular = primitiveHitRef->data.plane.specularColor;
+
+				break;
+			case SPHERE_T:
+				reflectivity = primitiveHitRef->data.sphere.reflectivity;
+				refractivity = primitiveHitRef->data.sphere.refractivity;
+				ior = primitiveHitRef->data.sphere.ior;
+
+				// Calculate normal
+				v3_subtract(&newRayOrigin, &primitiveHitRef->data.sphere.position, &normal);
+				v3_normalize(&normal, &normal);
+
+				colorDiffuse = primitiveHitRef->data.sphere.diffuseColor;
+				colorSpecular = primitiveHitRef->data.sphere.specularColor;
+				break;
+		}
+
 		// Shadow test
 		for (int i = 0; i < sceneRef->lightsLength; i++) {
 			Light *lightRef;
 			lightRef = sceneRef->lights[i];
 			double light_t = INFINITY;
-			double light_distance = INFINITY;
+			double lightDistance = INFINITY;
+			V3 lightPosition;
 
-			// Figure out newRayDirection
+			// Figure out hitToLightRayDirection
 			switch (lightRef->type) {
 				case POINTLIGHT_T:
-					v3_subtract(&lightRef->data.pointLight.position, &newRayOrigin, &newRayDirection);
-					v3_normalize(&newRayDirection, &newRayDirection);
-					v3_distance(&lightRef->data.pointLight.position, &newRayOrigin, &light_distance);
-					v3_copy(&lightRef->data.pointLight.color, &I);
+					lightPosition = lightRef->data.pointLight.position;
+					lightColor = lightRef->data.pointLight.color;
+					v3_subtract(&lightPosition, &newRayOrigin, &hitToLightRayDirection);
+					v3_normalize(&hitToLightRayDirection, &hitToLightRayDirection);
+					v3_distance(&lightPosition, &newRayOrigin, &lightDistance);
 					break;
 				case SPOTLIGHT_T:
-					v3_subtract(&lightRef->data.pointLight.position, &newRayOrigin, &newRayDirection);
-					v3_normalize(&newRayDirection, &newRayDirection);
-					v3_distance(&lightRef->data.pointLight.position, &newRayOrigin, &light_distance);
-					v3_copy(&lightRef->data.pointLight.color, &I);
+					lightPosition = lightRef->data.spotLight.position;
+					lightColor = lightRef->data.spotLight.color;
+					v3_subtract(&lightPosition, &newRayOrigin, &hitToLightRayDirection);
+					v3_normalize(&hitToLightRayDirection, &hitToLightRayDirection);
+					v3_distance(&lightPosition, &newRayOrigin, &lightDistance);
 					break;
 			}
 
@@ -147,14 +219,14 @@ int shoot(V3 *rayOriginRef, V3 *rayDirectionRef, Scene *sceneRef, RGBAColor *fou
 
 				switch(primitiveRef->type) {
 					case PLANE_T:
-						possible_t = intersect_plane(&primitiveRef->data.plane, &newRayOrigin, &newRayDirection);
+						possible_t = intersect_plane(&primitiveRef->data.plane, &newRayOrigin, &hitToLightRayDirection);
 						break;
 					case SPHERE_T:
-						possible_t = intersect_sphere(&primitiveRef->data.sphere, &newRayOrigin, &newRayDirection);
+						possible_t = intersect_sphere(&primitiveRef->data.sphere, &newRayOrigin, &hitToLightRayDirection);
 						break;
 				}
 				// Set the new possible shadow
-				if (possible_t > 0 && possible_t < light_distance) {
+				if (possible_t > 0 && possible_t < lightDistance) {
 					light_t = possible_t;
 					break;
 				}
@@ -164,62 +236,16 @@ int shoot(V3 *rayOriginRef, V3 *rayDirectionRef, Scene *sceneRef, RGBAColor *fou
 				// Our light is in shadow
 				continue;
 
-			// Light_position - newRayOrigin;
-			V3 L;
-			// Reflection of L
-			V3 R;
-			// RayDirection
-			V3 V;
-			// Normal
-			V3 N;
-			// Primitive diffuse color
-			V3 KD;
-			// Primitive specular color
-			V3 KS;
+			// Calculate rayReflectionDirection
+			v3_reflect(&hitToLightRayDirection, &normal, &rayReflectionDirection);
 
-			// Calculate L
-			v3_subtract(&sceneRef->lights[i]->data.pointLight.position, &newRayOrigin, &L);
-			v3_normalize(&L, &L);
-
-			// Calculate V
-			v3_copy(rayDirectionRef, &V);
-
-			switch(primitiveHitRef->type) {
-				case PLANE_T:
-					// Calculate N
-					v3_copy(&primitiveHitRef->data.plane.normal, &N);
-					// Calculate KD
-					v3_copy(&primitiveHitRef->data.plane.diffuseColor, &KD);
-					// Calculate KS
-					v3_copy(&primitiveHitRef->data.plane.specularColor, &KS);
-					break;
-
-				case SPHERE_T:
-					// Calculate N
-					v3_subtract(&newRayOrigin, &primitiveHitRef->data.sphere.position, &N);
-					v3_normalize(&N, &N);
-
-					// Calculate KD
-					v3_copy(&primitiveHitRef->data.sphere.diffuseColor, &KD);
-					// Calculate KS
-					v3_copy(&primitiveHitRef->data.sphere.specularColor, &KS);
-					break;
-			}
-
-			// Calculate R
-			v3_reflect(&L, &N, &R);
-
-			V3 lightContribution = {0, 0, 0};
-			V3 diffuse;
-			V3 specular;
-			double frad;
-			double fang;
 			// Get diffuse color contribution
-			calculate_diffuse(&N, &L, &KD, &I, &diffuse);
+			calculate_diffuse(&normal, &hitToLightRayDirection, &colorDiffuse, &lightColor, &diffuse);
 			// Get specular color contribution
-			calculate_specular(&V, &R, &KS, &I, &N, &L, &specular);
-			calculate_frad(lightRef, light_distance, &frad);
-			calculate_fang(lightRef, &newRayDirection, &fang);
+			calculate_specular(rayDirectionRef, &rayReflectionDirection, &colorSpecular, &lightColor, &normal, &hitToLightRayDirection, &specular);
+			
+			calculate_frad(lightRef, lightDistance, &frad);
+			calculate_fang(lightRef, &hitToLightRayDirection, &fang);
 			v3_add(&diffuse, &specular, &lightContribution);
 			v3_scale(&lightContribution, frad * fang, &lightContribution);
 			color.array[0] += lightContribution.array[0];
@@ -227,15 +253,26 @@ int shoot(V3 *rayOriginRef, V3 *rayDirectionRef, Scene *sceneRef, RGBAColor *fou
 			color.array[2] += lightContribution.array[2];
 		}
 
-		// Figure out lighting
-		foundColor->data.R = (uint8_t) (clamp(color.array[0])*255);
-		foundColor->data.G = (uint8_t) (clamp(color.array[1])*255);
-		foundColor->data.B = (uint8_t) (clamp(color.array[2])*255);
-		foundColor->data.A = 1;
+		v3_add(&color, foundColor, foundColor);
+
+		if (depth < MAX_RECURSE_DEPTH) {
+			V3 reflectionColor;
+
+			if (reflectivity > 0) {
+				v3_reflect(rayDirectionRef, &normal, &rayReflectionDirection);
+
+				shoot_rec(&newRayOrigin, &rayReflectionDirection, sceneRef, &reflectionColor, depth + 1);
+
+				v3_scale(&reflectionColor, reflectivity, &reflectionColor);
+
+				v3_add(&reflectionColor, foundColor, foundColor);
+			}
+		}
 	}
 
 	return 0;
 }
+
 
 /**
  * Clamp a value between 0 and 1
@@ -344,20 +381,6 @@ void calculate_specular(V3 *V, V3 *R, V3 *K, V3* I, V3* N, V3* L, V3* result) {
 	}
 }
 
-/**
- * Sets a RGBAColor to the specific value
- * @param color - The color to set
- * @param r - The red channel
- * @param g - The green channel
- * @param b - The blue channel
- * @param a - The alpha channel
- */
-void set_color(RGBAColor* color, uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
-	color->data.R = r;
-	color->data.G = g;
-	color->data.B = b;
-	color->data.A = a;
-}
 /**
  * Sphere intersection test
  * @param sphereRef - The sphere to check
