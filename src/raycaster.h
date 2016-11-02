@@ -40,6 +40,9 @@ typedef struct Sphere {
 	V3 specularColor;
 	V3 position;
 	double radius;
+	double reflectivity;
+	double refractivity;
+	double ior;
 } Sphere;
 
 /**
@@ -50,6 +53,9 @@ typedef struct Plane {
 	V3 specularColor;
 	V3 position;
 	V3 normal;
+	double reflectivity;
+	double refractivity;
+	double ior;
 } Plane;
 
 /**
