@@ -28,13 +28,13 @@ int isinteger(char *string) {
  * Show a simple help message about the usage of this program
  */
 void show_help() {
-	printf("Usage: raycast <render_width> <render_height> <input_scene> <output_file>\n");
+	printf("Usage: raytrace <render_width> <render_height> <input_scene> <output_file>\n");
 	printf("\t render_width: The width of the image to render\n");
 	printf("\t render_height: The height of the image to render\n");
 	printf("\t input_scene: The input scene file in a supported JSON format\n");
 	printf("\t output_file: The location to write the output PPM P6 image\n");
 	printf("\n");
-	printf("\t Example: raycast 1920 1080 scene.json out.ppm\n");
+	printf("\t Example: raytrace 1920 1080 scene.json out.ppm\n");
 }
 
 /**
@@ -78,7 +78,7 @@ int main (int argc, char *argv[]) {
 
 	// Raycast the scene into an image
 	Image image;
-	printf("[INFO] Raycasting scene into image\n");
+	printf("[INFO] Raytracing scene into image\n");
 	if (raycast(&scene, &image, imageWidth, imageHeight) != 0)
 		return 1;
 
