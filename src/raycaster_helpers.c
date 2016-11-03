@@ -236,7 +236,7 @@ int create_scene_from_JSON(JSONValue *JSONValueSceneRef, Scene* sceneRef) {
 				sceneRef->primitives[primitivesLength]->data.sphere.refractivity = JSONValueTempRef->data.dataNumber;
 
 				// Read the ior
-				if (JSONObject_get_value("refractivity", JSONObjectTempRef, &JSONValueTempRef) != 0) {
+				if (JSONObject_get_value("ior", JSONObjectTempRef, &JSONValueTempRef) != 0) {
 					fprintf(stderr, "Error: Primitive definition must include ior\n");
 					return 1;
 				}
@@ -375,7 +375,7 @@ int create_scene_from_JSON(JSONValue *JSONValueSceneRef, Scene* sceneRef) {
 				sceneRef->primitives[primitivesLength]->data.plane.refractivity = JSONValueTempRef->data.dataNumber;
 
 				// Read the ior
-				if (JSONObject_get_value("refractivity", JSONObjectTempRef, &JSONValueTempRef) != 0) {
+				if (JSONObject_get_value("ior", JSONObjectTempRef, &JSONValueTempRef) != 0) {
 					fprintf(stderr, "Error: Primitive definition must include ior\n");
 					return 1;
 				}

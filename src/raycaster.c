@@ -45,6 +45,8 @@ int raycast(Scene *sceneRef, Image* imageRef, int imageWidth, int imageHeight) {
 		for (int j=0; j<imageHeight; j++) {
             point.data.X = viewPlanePos.data.X - cameraWidth/2.0 + pixelWidth * (j + 0.5);
 			v3_normalize(&point, &rayDirection); // normalization, find the ray direction
+			if (i == 564 && j == 505)
+				printf("Got here");
 			shoot(&cameraPos, &rayDirection, sceneRef, &colorFound);
 			shade(&colorFound, &imageRef->pixmapRef[i*imageHeight + j]);
 		}
@@ -79,7 +81,7 @@ int shade(RGBAColor* colorRef, RGBApixel *pixel) {
  */
 int shoot(V3 *rayOriginRef, V3 *rayDirectionRef, Scene *sceneRef, RGBAColor *foundColor) {
 	V3 color;
-	if (shoot_rec(rayOriginRef, rayDirectionRef, sceneRef, &color, 0) != 0) {
+	if (shoot_rec(rayOriginRef, rayDirectionRef, sceneRef, &color, 0, NULL) != 0) {
 		return 1;
 	}
 
@@ -101,7 +103,7 @@ int shoot(V3 *rayOriginRef, V3 *rayDirectionRef, Scene *sceneRef, RGBAColor *fou
  * @param primitiveHit - A reference to a refrence of a primitive to set to the hit reference if a hit occurs
  * @return
  */
-int shoot_rec(V3 *rayOriginRef, V3 *rayDirectionRef, Scene *sceneRef, V3 *foundColor, int depth) {
+int shoot_rec(V3 *rayOriginRef, V3 *rayDirectionRef, Scene *sceneRef, V3 *foundColor, int depth, Primitive *ignore) {
 	Primitive *primitiveRef;
 	Primitive *primitiveHitRef = NULL;
 
@@ -117,6 +119,8 @@ int shoot_rec(V3 *rayOriginRef, V3 *rayDirectionRef, Scene *sceneRef, V3 *foundC
 	for (int i = 0; i < sceneRef->primitivesLength; i++) {
 		possible_t = INFINITY;
 		primitiveRef = sceneRef->primitives[i];
+		if (primitiveRef == ignore)
+			continue;
 
 		switch(primitiveRef->type) {
 			case PLANE_T:
@@ -135,7 +139,7 @@ int shoot_rec(V3 *rayOriginRef, V3 *rayDirectionRef, Scene *sceneRef, V3 *foundC
 
 	if (primitiveHitRef != NULL) {
 		// ambient light
-		V3 color = {0.1, 0.1, 0.1};
+		V3 color = {0, 0, 0};
 
 		V3 newRayOrigin;
 		// Calculate our newRayOrigin
@@ -243,30 +247,64 @@ int shoot_rec(V3 *rayOriginRef, V3 *rayDirectionRef, Scene *sceneRef, V3 *foundC
 			calculate_diffuse(&normal, &hitToLightRayDirection, &colorDiffuse, &lightColor, &diffuse);
 			// Get specular color contribution
 			calculate_specular(rayDirectionRef, &rayReflectionDirection, &colorSpecular, &lightColor, &normal, &hitToLightRayDirection, &specular);
-			
+
 			calculate_frad(lightRef, lightDistance, &frad);
 			calculate_fang(lightRef, &hitToLightRayDirection, &fang);
 			v3_add(&diffuse, &specular, &lightContribution);
 			v3_scale(&lightContribution, frad * fang, &lightContribution);
-			color.array[0] += lightContribution.array[0];
-			color.array[1] += lightContribution.array[1];
-			color.array[2] += lightContribution.array[2];
+			v3_add(&color, &lightContribution, &color);
 		}
 
 		v3_add(&color, foundColor, foundColor);
 
 		if (depth < MAX_RECURSE_DEPTH) {
 			V3 reflectionColor;
+			V3 refractionColor;
 
 			if (reflectivity > 0) {
 				v3_reflect(rayDirectionRef, &normal, &rayReflectionDirection);
 
-				shoot_rec(&newRayOrigin, &rayReflectionDirection, sceneRef, &reflectionColor, depth + 1);
+				shoot_rec(&newRayOrigin, &rayReflectionDirection, sceneRef, &reflectionColor, depth + 1, NULL);
 
 				v3_scale(&reflectionColor, reflectivity, &reflectionColor);
 
 				v3_add(&reflectionColor, foundColor, foundColor);
 			}
+
+			if (refractivity > 0) {
+				v3_scale(foundColor, 1 - refractivity, foundColor);
+
+				if (primitiveHitRef->type == SPHERE_T) {
+					double c1, c2;
+					V3 rayRefractionDirection;
+					V3 rayRefractionDirection1;
+					V3 rayRefractionDirection2;
+					V3 rayRefractionExit;
+					double n = 1.0/ior;
+
+					v3_dot(&normal, rayDirectionRef, &c1);
+					c1 = -c1;
+					c2 = 1 - pow(n, 2) * (1 - pow(c1, 2));
+
+					v3_scale(rayDirectionRef, n, &rayRefractionDirection1);
+
+					v3_scale(&normal, n * c1 - sqrt(c2), &rayRefractionDirection2);
+					v3_add(&rayRefractionDirection1, &rayRefractionDirection2, &rayRefractionDirection);
+
+					// move along the direction for the radius of the sphere
+					v3_scale(&rayRefractionDirection, intersect_sphere_furthest(&primitiveHitRef->data.sphere, &newRayOrigin, &rayRefractionDirection), &rayRefractionExit);
+					v3_add(&newRayOrigin, &rayRefractionExit, &newRayOrigin);
+				}
+
+				shoot_rec(&newRayOrigin, rayDirectionRef, sceneRef, &refractionColor, depth + 1, primitiveHitRef);
+
+				v3_scale(&refractionColor, refractivity, &refractionColor);
+
+				v3_add(&refractionColor, foundColor, foundColor);
+			}
+		}
+		else {
+			printf("Got here now!");
 		}
 	}
 
@@ -401,7 +439,36 @@ double intersect_sphere(Sphere *sphereRef, V3 *rayOriginRef, V3 *rayDirectionRef
 	double t_possible = (-B + sqrt(discriminant))/2;
 	double t_possible2 = (-B - sqrt(discriminant))/2;
 	if (t_possible || t_possible2 > 0) {
-		if (t_possible > t_possible2)
+		if (t_possible > t_possible2 && t_possible2 > 0)
+			return t_possible2;
+		else
+			return t_possible;
+	}
+
+	return INFINITY;
+}
+
+/**
+ * Sphere intersection test
+ * @param sphereRef - The sphere to check
+ * @param rayOriginRef - The ray origin
+ * @param rayDirectionRef - The ray direction
+ * @return The hit distance between the rayOrigin and the sphere along the rayDirection, if positive. Otherwise INFINITY.
+ */
+double intersect_sphere_furthest(Sphere *sphereRef, V3 *rayOriginRef, V3 *rayDirectionRef) {
+	double B = 2 * (rayDirectionRef->data.X * (rayOriginRef->data.X - sphereRef->position.data.X) + rayDirectionRef->data.Y*(rayOriginRef->data.Y - sphereRef->position.data.Y) + rayDirectionRef->data.Z*(rayOriginRef->data.Z - sphereRef->position.data.Z));
+	double C = pow(rayOriginRef->data.X - sphereRef->position.data.X, 2) + pow(rayOriginRef->data.Y - sphereRef->position.data.Y, 2) + pow(rayOriginRef->data.Z - sphereRef->position.data.Z, 2) - pow(sphereRef->radius, 2);
+
+	double discriminant = (pow(B, 2) - 4*C);
+	if (discriminant < 0) {
+		// No intersection
+		return INFINITY;
+	}
+
+	double t_possible = (-B + sqrt(discriminant))/2;
+	double t_possible2 = (-B - sqrt(discriminant))/2;
+	if (t_possible || t_possible2 > 0) {
+		if (t_possible < t_possible2 && t_possible > 0)
 			return t_possible2;
 		else
 			return t_possible;

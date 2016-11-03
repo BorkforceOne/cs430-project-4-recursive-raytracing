@@ -130,7 +130,8 @@ double clamp(double a);
 void calculate_frad(Light *light, double distance, double *result);
 void calculate_fang(Light *light, V3 *V0, double *result);
 void calculate_diffuse(V3 *N, V3 *L, V3 *K, V3* I, V3* result);
-int shoot_rec(V3 *rayOriginRef, V3 *rayDirectionRef, Scene *sceneRef, V3 *foundColor, int depth);
+int shoot_rec(V3 *rayOriginRef, V3 *rayDirectionRef, Scene *sceneRef, V3 *foundColor, int depth, Primitive *ignore);
+double intersect_sphere_furthest(Sphere *sphereRef, V3 *rayOriginRef, V3 *rayDirectionRef);
 void calculate_specular(V3 *V, V3 *R, V3 *K, V3* I, V3* N, V3* L, V3* result);
 
 #endif //CS430_PROJECT_2_BASIC_RAYCASTER_RAYTRACER_H
