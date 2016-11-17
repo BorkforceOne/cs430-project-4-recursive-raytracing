@@ -8,7 +8,7 @@
 #include "raycaster.h"
 #include "imaging.h"
 
-#define MAX_RECURSE_DEPTH 6
+#define MAX_RECURSE_DEPTH 100
 
 /**
  * Allocates space in the imageRef specified for an image of the selected imageWidth and imageHeight.
@@ -45,8 +45,6 @@ int raycast(Scene *sceneRef, Image* imageRef, int imageWidth, int imageHeight) {
 		for (int j=0; j<imageHeight; j++) {
             point.data.X = viewPlanePos.data.X - cameraWidth/2.0 + pixelWidth * (j + 0.5);
 			v3_normalize(&point, &rayDirection); // normalization, find the ray direction
-			if (i == 564 && j == 505)
-				printf("Got here");
 			shoot(&cameraPos, &rayDirection, sceneRef, &colorFound);
 			shade(&colorFound, &imageRef->pixmapRef[i*imageHeight + j]);
 		}
@@ -261,13 +259,24 @@ int shoot_rec(V3 *rayOriginRef, V3 *rayDirectionRef, Scene *sceneRef, V3 *foundC
 			V3 reflectionColor;
 			V3 refractionColor;
 
+            // Do refrlectivity
 			if (reflectivity > 0) {
+                V3 rayReflectionExit;
+
+                // Calculate the reflection
 				v3_reflect(rayDirectionRef, &normal, &rayReflectionDirection);
 
-				shoot_rec(&newRayOrigin, &rayReflectionDirection, sceneRef, &reflectionColor, depth + 1, NULL);
+                // Scale away from the object slightly
+                v3_scale(&rayReflectionDirection, 0.0001, &rayReflectionExit);
+                v3_add(&newRayOrigin, &rayReflectionDirection, &rayReflectionExit);
 
+                // Find the color of the reflection
+				shoot_rec(&rayReflectionExit, &rayReflectionDirection, sceneRef, &reflectionColor, depth + 1, NULL);
+
+                // Scale the found reflection color by the reflection factor
 				v3_scale(&reflectionColor, reflectivity, &reflectionColor);
 
+                // Add the reflection color to the total color
 				v3_add(&reflectionColor, foundColor, foundColor);
 			}
 
@@ -276,9 +285,9 @@ int shoot_rec(V3 *rayOriginRef, V3 *rayDirectionRef, Scene *sceneRef, V3 *foundC
 
 				if (primitiveHitRef->type == SPHERE_T) {
 					double c1, c2;
-					V3 rayRefractionDirection;
-					V3 rayRefractionDirection1;
-					V3 rayRefractionDirection2;
+					V3 d1;
+					V3 d2;
+					V3 d3;
 					V3 rayRefractionExit;
 					double n = 1.0/ior;
 
@@ -286,13 +295,13 @@ int shoot_rec(V3 *rayOriginRef, V3 *rayDirectionRef, Scene *sceneRef, V3 *foundC
 					c1 = -c1;
 					c2 = 1 - pow(n, 2) * (1 - pow(c1, 2));
 
-					v3_scale(rayDirectionRef, n, &rayRefractionDirection1);
+					v3_scale(rayDirectionRef, n, &d2);
 
-					v3_scale(&normal, n * c1 - sqrt(c2), &rayRefractionDirection2);
-					v3_add(&rayRefractionDirection1, &rayRefractionDirection2, &rayRefractionDirection);
+					v3_scale(&normal, n * c1 - sqrt(c2), &d3);
+					v3_add(&d2, &d3, &d1);
 
 					// move along the direction for the radius of the sphere
-					v3_scale(&rayRefractionDirection, intersect_sphere_furthest(&primitiveHitRef->data.sphere, &newRayOrigin, &rayRefractionDirection), &rayRefractionExit);
+					v3_scale(&d1, intersect_sphere_furthest(&primitiveHitRef->data.sphere, &newRayOrigin, &d1), &rayRefractionExit);
 					v3_add(&newRayOrigin, &rayRefractionExit, &newRayOrigin);
 				}
 
@@ -302,9 +311,6 @@ int shoot_rec(V3 *rayOriginRef, V3 *rayDirectionRef, Scene *sceneRef, V3 *foundC
 
 				v3_add(&refractionColor, foundColor, foundColor);
 			}
-		}
-		else {
-			printf("Got here now!");
 		}
 	}
 

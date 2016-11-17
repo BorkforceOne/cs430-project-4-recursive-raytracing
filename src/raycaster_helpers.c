@@ -204,52 +204,56 @@ int create_scene_from_JSON(JSONValue *JSONValueSceneRef, Scene* sceneRef) {
 				sceneRef->primitives[primitivesLength]->data.sphere.radius = JSONValueTempRef->data.dataNumber;
 
 				// Read the reflectivity
-				if (JSONObject_get_value("reflectivity", JSONObjectTempRef, &JSONValueTempRef) != 0) {
-					fprintf(stderr, "Error: Primitive definition must include refractivity\n");
-					return 1;
+				if (JSONObject_get_value("reflectivity", JSONObjectTempRef, &JSONValueTempRef) == 0) {
+					if (JSONValueTempRef->type != NUMBER_T) {
+						fprintf(stderr, "Error: Refractivity must be a number\n");
+						return 1;
+					}
+					if (JSONValueTempRef->data.dataNumber < 0) {
+						fprintf(stderr, "Error: Negative reflectivity is not allowed\n");
+						return 1;
+					}
+
+					sceneRef->primitives[primitivesLength]->data.sphere.reflectivity = JSONValueTempRef->data.dataNumber;
 				}
-				if (JSONValueTempRef->type != NUMBER_T) {
-					fprintf(stderr, "Error: Refractivity must be a number\n");
-					return 1;
-				}
-				if (JSONValueTempRef->data.dataNumber < 0) {
-					fprintf(stderr, "Error: Negative reflectivity is not allowed\n");
-					return 1;
+				else {
+					sceneRef->primitives[primitivesLength]->data.sphere.reflectivity = 0;
 				}
 
-				sceneRef->primitives[primitivesLength]->data.sphere.reflectivity = JSONValueTempRef->data.dataNumber;
 
 				// Read the refractivity
-				if (JSONObject_get_value("refractivity", JSONObjectTempRef, &JSONValueTempRef) != 0) {
-					fprintf(stderr, "Error: Primitive definition must include refractivity\n");
-					return 1;
-				}
-				if (JSONValueTempRef->type != NUMBER_T) {
-					fprintf(stderr, "Error: Refractivity must be a number\n");
-					return 1;
-				}
-				if (JSONValueTempRef->data.dataNumber < 0) {
-					fprintf(stderr, "Error: Negative refractivity is not allowed\n");
-					return 1;
-				}
+				if (JSONObject_get_value("refractivity", JSONObjectTempRef, &JSONValueTempRef) == 0) {
+					if (JSONValueTempRef->type != NUMBER_T) {
+						fprintf(stderr, "Error: Refractivity must be a number\n");
+						return 1;
+					}
+					if (JSONValueTempRef->data.dataNumber < 0) {
+						fprintf(stderr, "Error: Negative refractivity is not allowed\n");
+						return 1;
+					}
 
-				sceneRef->primitives[primitivesLength]->data.sphere.refractivity = JSONValueTempRef->data.dataNumber;
+					sceneRef->primitives[primitivesLength]->data.sphere.refractivity = JSONValueTempRef->data.dataNumber;
+				}
+				else {
+					sceneRef->primitives[primitivesLength]->data.sphere.refractivity = 0;
+				}
 
 				// Read the ior
 				if (JSONObject_get_value("ior", JSONObjectTempRef, &JSONValueTempRef) != 0) {
-					fprintf(stderr, "Error: Primitive definition must include ior\n");
-					return 1;
-				}
-				if (JSONValueTempRef->type != NUMBER_T) {
-					fprintf(stderr, "Error: Ior must be a number\n");
-					return 1;
-				}
-				if (JSONValueTempRef->data.dataNumber < 0) {
-					fprintf(stderr, "Error: Negative ior is not allowed\n");
-					return 1;
-				}
+					if (JSONValueTempRef->type != NUMBER_T) {
+						fprintf(stderr, "Error: Ior must be a number\n");
+						return 1;
+					}
+					if (JSONValueTempRef->data.dataNumber < 0) {
+						fprintf(stderr, "Error: Negative ior is not allowed\n");
+						return 1;
+					}
 
-				sceneRef->primitives[primitivesLength]->data.sphere.ior = JSONValueTempRef->data.dataNumber;
+					sceneRef->primitives[primitivesLength]->data.sphere.ior = JSONValueTempRef->data.dataNumber;
+				}
+				else {
+					sceneRef->primitives[primitivesLength]->data.sphere.ior = 1;
+				}
 
 				primitivesLength++;
 			}
@@ -343,52 +347,55 @@ int create_scene_from_JSON(JSONValue *JSONValueSceneRef, Scene* sceneRef) {
 
 
 				// Read the reflectivity
-				if (JSONObject_get_value("reflectivity", JSONObjectTempRef, &JSONValueTempRef) != 0) {
-					fprintf(stderr, "Error: Primitive definition must include refractivity\n");
-					return 1;
-				}
-				if (JSONValueTempRef->type != NUMBER_T) {
-					fprintf(stderr, "Error: Refractivity must be a number\n");
-					return 1;
-				}
-				if (JSONValueTempRef->data.dataNumber < 0) {
-					fprintf(stderr, "Error: Negative reflectivity is not allowed\n");
-					return 1;
-				}
+				if (JSONObject_get_value("reflectivity", JSONObjectTempRef, &JSONValueTempRef) == 0) {
+					if (JSONValueTempRef->type != NUMBER_T) {
+						fprintf(stderr, "Error: Refractivity must be a number\n");
+						return 1;
+					}
+					if (JSONValueTempRef->data.dataNumber < 0) {
+						fprintf(stderr, "Error: Negative reflectivity is not allowed\n");
+						return 1;
+					}
 
-				sceneRef->primitives[primitivesLength]->data.plane.reflectivity = JSONValueTempRef->data.dataNumber;
+					sceneRef->primitives[primitivesLength]->data.plane.reflectivity = JSONValueTempRef->data.dataNumber;
+				}
+				else {
+					sceneRef->primitives[primitivesLength]->data.plane.reflectivity = 0;
+				}
 
 				// Read the refractivity
-				if (JSONObject_get_value("refractivity", JSONObjectTempRef, &JSONValueTempRef) != 0) {
-					fprintf(stderr, "Error: Primitive definition must include refractivity\n");
-					return 1;
-				}
-				if (JSONValueTempRef->type != NUMBER_T) {
-					fprintf(stderr, "Error: Refractivity must be a number\n");
-					return 1;
-				}
-				if (JSONValueTempRef->data.dataNumber < 0) {
-					fprintf(stderr, "Error: Negative refractivity is not allowed\n");
-					return 1;
-				}
+				if (JSONObject_get_value("refractivity", JSONObjectTempRef, &JSONValueTempRef) == 0) {
+					if (JSONValueTempRef->type != NUMBER_T) {
+						fprintf(stderr, "Error: Refractivity must be a number\n");
+						return 1;
+					}
+					if (JSONValueTempRef->data.dataNumber < 0) {
+						fprintf(stderr, "Error: Negative refractivity is not allowed\n");
+						return 1;
+					}
 
-				sceneRef->primitives[primitivesLength]->data.plane.refractivity = JSONValueTempRef->data.dataNumber;
+					sceneRef->primitives[primitivesLength]->data.plane.refractivity = JSONValueTempRef->data.dataNumber;
+				}
+				else {
+					sceneRef->primitives[primitivesLength]->data.plane.refractivity = 0;
+				}
 
 				// Read the ior
-				if (JSONObject_get_value("ior", JSONObjectTempRef, &JSONValueTempRef) != 0) {
-					fprintf(stderr, "Error: Primitive definition must include ior\n");
-					return 1;
-				}
-				if (JSONValueTempRef->type != NUMBER_T) {
-					fprintf(stderr, "Error: Ior must be a number\n");
-					return 1;
-				}
-				if (JSONValueTempRef->data.dataNumber < 0) {
-					fprintf(stderr, "Error: Negative ior is not allowed\n");
-					return 1;
-				}
+				if (JSONObject_get_value("ior", JSONObjectTempRef, &JSONValueTempRef) == 0) {
+					if (JSONValueTempRef->type != NUMBER_T) {
+						fprintf(stderr, "Error: Ior must be a number\n");
+						return 1;
+					}
+					if (JSONValueTempRef->data.dataNumber < 0) {
+						fprintf(stderr, "Error: Negative ior is not allowed\n");
+						return 1;
+					}
 
-				sceneRef->primitives[primitivesLength]->data.plane.ior= JSONValueTempRef->data.dataNumber;
+					sceneRef->primitives[primitivesLength]->data.plane.ior = JSONValueTempRef->data.dataNumber;
+				}
+				else {
+					sceneRef->primitives[primitivesLength]->data.plane.ior = 1;
+				}
 
 				primitivesLength++;
 			}

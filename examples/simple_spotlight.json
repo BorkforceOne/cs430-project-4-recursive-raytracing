@@ -1,10 +1,11 @@
 [
   {
     "type": "plane",
-    "diffuse_color": [0.5, 0.5, 0.5],
+    "diffuse_color": [1, 0, 0],
     "specular_color": [1.0, 1.0, 1.0],
     "position": [0, -1, 0],
-    "normal": [0, 1, 0]
+    "normal": [0, 1, 0],
+    "reflectivity": 0.45
   },
   {
     "type": "sphere",

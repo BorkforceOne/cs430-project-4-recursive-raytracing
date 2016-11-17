@@ -50,9 +50,9 @@
     "specular_color": [0.4, 0.4, 0.4],
     "position": [0, 0, 20],
     "radius": 0.75,
-    "reflectivity": 0,
-    "refractivity": 1,
-    "ior": 1.33
+    "reflectivity": 1,
+    "refractivity": 0,
+    "ior": 1.22
   },
   {
     "type": "light",
